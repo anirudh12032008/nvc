@@ -61,6 +61,9 @@ static void name_for_diag(diag_t *d, vlog_node_t v, const char *alt)
    }
 }
 
+static vlog_node_t top_module = NULL;
+static int         gen_depth = 0;
+
 static type_mask_t get_type_mask(vlog_node_t v)
 {
    switch (vlog_kind(v)) {
@@ -719,6 +722,72 @@ static vlog_node_t find_gen_block(vlog_node_t scope, ident_t name)
    return NULL;
 }
 
+static vlog_node_t find_decl(vlog_node_t scope, ident_t name)
+{
+   const int ndecls = vlog_decls(scope);
+   for (int i = 0; i < ndecls; i++) {
+      vlog_node_t d = vlog_decl(scope, i);
+      if (vlog_ident(d) == name)
+         return d;
+   }
+
+   return NULL;
+}
+
+static vlog_node_t find_parent_if(vlog_node_t scope, vlog_node_t b)
+{
+   const int nstmts = vlog_stmts(scope);
+   for (int i = 0; i < nstmts; i++) {
+      vlog_node_t s = vlog_stmt(scope, i), r;
+      if (vlog_kind(s) == V_GEN_BLOCK) {
+         if ((r = find_parent_if(s, b)))
+            return r;
+      }
+      else if (vlog_kind(s) == V_IF_GENERATE) {
+         const int nconds = vlog_conds(s);
+         for (int j = 0; j < nconds; j++) {
+            vlog_node_t c = vlog_cond(s, j);
+            for (int k = 0; k < vlog_stmts(c); k++) {
+               if (vlog_stmt(c, k) == b)
+                  return s;
+            }
+
+            if ((r = find_parent_if(c, b)))
+               return r;
+         }
+      }
+   }
+
+   return NULL;
+}
+
+typedef vlog_node_t (*find_fn_t)(vlog_node_t, ident_t);
+
+static vlog_node_t find_in_branches(vlog_node_t b, find_fn_t fn, ident_t name)
+{
+   // Branches of an if generate may share the same block name
+   vlog_node_t r = (*fn)(b, name);
+   if (r != NULL)
+      return r;
+
+   vlog_node_t gen = top_module ? find_parent_if(top_module, b) : NULL;
+   if (gen == NULL)
+      return NULL;
+
+   const int nconds = vlog_conds(gen);
+   for (int i = 0; i < nconds; i++) {
+      vlog_node_t c = vlog_cond(gen, i);
+      for (int j = 0; j < vlog_stmts(c); j++) {
+         vlog_node_t s = vlog_stmt(c, j);
+         if (s != b && vlog_kind(s) == V_GEN_BLOCK
+             && vlog_ident(s) == vlog_ident(b) && (r = (*fn)(s, name)))
+            return r;
+      }
+   }
+
+   return NULL;
+}
+
 static vlog_node_t resolve_hier_scope(vlog_node_t v)
 {
    if (!vlog_has_value(v))
@@ -728,7 +797,17 @@ static vlog_node_t resolve_hier_scope(vlog_node_t v)
    if (outer == NULL || vlog_kind(outer) != V_GEN_BLOCK)
       return NULL;
 
-   return find_gen_block(outer, vlog_ident(v));
+   return find_in_branches(outer, find_gen_block, vlog_ident(v));
+}
+
+static bool check_hier_origin(vlog_node_t v)
+{
+   if (gen_depth == 0)
+      return true;
+
+   error_at(vlog_loc(v), "sorry, hierarchical references from inside a "
+            "generate block are not yet supported");
+   return false;
 }
 
 static bool vlog_resolve_hier_tf(vlog_node_t v)
@@ -738,6 +817,8 @@ static bool vlog_resolve_hier_tf(vlog_node_t v)
 
    if (vlog_has_ref(v))
       return true;
+   else if (!check_hier_origin(v))
+      return false;
 
    vlog_node_t prefix = vlog_value(v), scope = resolve_hier_scope(prefix);
    if (scope == NULL) {
@@ -753,20 +834,17 @@ static bool vlog_resolve_hier_tf(vlog_node_t v)
 
    ident_t id = vlog_ident(v);
 
-   const int ndecls = vlog_decls(scope);
-   for (int i = 0; i < ndecls; i++) {
-      vlog_node_t d = vlog_decl(scope, i);
-      if (vlog_ident(d) == id) {
-         vlog_set_ref(v, d);
-         return true;
-      }
+   vlog_node_t d = find_in_branches(scope, find_decl, id);
+   if (d != NULL) {
+      vlog_set_ref(v, d);
+      return true;
    }
 
-   diag_t *d = diag_new(DIAG_ERROR, vlog_loc(v));
-   diag_printf(d, "name %pQ not found in %pQ", id, vlog_ident(scope));
-   diag_hint(d, vlog_loc(scope), "generate block %pQ declared here",
+   diag_t *dg = diag_new(DIAG_ERROR, vlog_loc(v));
+   diag_printf(dg, "name %pQ not found in %pQ", id, vlog_ident(scope));
+   diag_hint(dg, vlog_loc(scope), "generate block %pQ declared here",
              vlog_ident(scope));
-   diag_emit(d);
+   diag_emit(dg);
    return false;
 }
 
@@ -881,6 +959,8 @@ static void vlog_check_module(vlog_node_t v)
                   istr(vlog_ident(ref)));
    }
 
+   top_module = v;
+
    vlog_check_decls(v);
    vlog_check_stmts(v);
 }
@@ -948,6 +1028,9 @@ static type_mask_t vlog_check_mod_ref(vlog_node_t v)
 
 static type_mask_t vlog_check_hier_ref(vlog_node_t v)
 {
+   if (!check_hier_origin(v))
+      return TM_ERROR;
+
    return vlog_check_expr(vlog_value(v));
 }
 
@@ -1027,7 +1110,7 @@ static type_mask_t vlog_check_user_fcall(vlog_node_t v)
          all_const = false;
    }
 
-   if (all_const)
+   if (all_const && !vlog_has_value(v))   // Cannot be hierarchical
       tmask |= TM_CONST;
 
    return tmask;
@@ -1434,8 +1517,13 @@ void vlog_check(vlog_node_t v)
    case V_FOREVER:
       vlog_check_stmts(v);
       break;
-   case V_SEQ_BLOCK:
    case V_GEN_BLOCK:
+      gen_depth++;
+      vlog_check_decls(v);
+      vlog_check_stmts(v);
+      gen_depth--;
+      break;
+   case V_SEQ_BLOCK:
    case V_PROGRAM:
    case V_CONSTRUCTOR:
       vlog_check_decls(v);

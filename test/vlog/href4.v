@@ -9,4 +9,9 @@ module href4;
     $display(g.nothere(1));     // Error
     $display(nonesuch.f(1));    // Error
   end
+
+  if (1) begin: other
+    initial $display(g.f(1));   // Error
+  end
+
 endmodule // href4
