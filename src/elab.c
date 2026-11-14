@@ -2875,7 +2875,10 @@ static void elab_verilog_root(vlog_node_t v, const elab_ctx_t *ctx)
 
 static vlog_node_t elab_rewrite_hier_ref_cb(vlog_node_t v, void *arg)
 {
-   if (vlog_kind(v) != V_HIER_REF)
+   const vlog_kind_t kind = vlog_kind(v);
+   if (kind != V_HIER_REF && kind != V_USER_FCALL && kind != V_USER_TCALL)
+      return v;
+   else if (kind != V_HIER_REF && !vlog_has_value(v))
       return v;
 
    vlog_node_t prefix = vlog_value(v);
@@ -2884,6 +2887,25 @@ static vlog_node_t elab_rewrite_hier_ref_cb(vlog_node_t v, void *arg)
       return v;
 
    ident_t id = vlog_ident(v);
+
+   if (kind != V_HIER_REF) {
+      // Bind to the copy of the task or function in the elaborated block
+      const int ndecls = tree_decls(b);
+      for (int i = 0; i < ndecls; i++) {
+         tree_t wrap = tree_decl(b, i);
+         if (tree_kind(wrap) != T_VERILOG)
+            continue;
+
+         vlog_node_t vd = tree_vlog(wrap);
+         if (vlog_ident(vd) == id && vlog_kind(vd) == vlog_kind(vlog_ref(v))) {
+            vlog_set_ref(v, vd);
+            return v;
+         }
+      }
+
+      error_at(vlog_loc(v), "name %pQ not found in %pQ", id, tree_ident(b));
+      return v;
+   }
 
    const int ndecls = tree_decls(b);
    for (int i = 0; i < ndecls; i++) {

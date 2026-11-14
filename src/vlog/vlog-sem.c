@@ -474,7 +474,7 @@ static void vlog_const_func_cb(vlog_node_t v, void *ctx)
       }
       break;
    case V_USER_FCALL:
-      if (!(vlog_flags(vlog_ref(v)) & VLOG_F_CONST))
+      if (vlog_has_value(v) || !(vlog_flags(vlog_ref(v)) & VLOG_F_CONST))
          vlog_clear_flags(ctx, VLOG_F_CONST);
       break;
    case V_HIER_REF:
@@ -692,8 +692,89 @@ static void vlog_check_call_args(vlog_node_t v, vlog_node_t sub)
    }
 }
 
+static vlog_node_t find_gen_block(vlog_node_t scope, ident_t name)
+{
+   const int nstmts = vlog_stmts(scope);
+   for (int i = 0; i < nstmts; i++) {
+      vlog_node_t s = vlog_stmt(scope, i), b;
+      switch (vlog_kind(s)) {
+      case V_GEN_BLOCK:
+         if (vlog_ident(s) == name)
+            return s;
+         break;
+      case V_IF_GENERATE:
+         {
+            const int nconds = vlog_conds(s);
+            for (int j = 0; j < nconds; j++) {
+               if ((b = find_gen_block(vlog_cond(s, j), name)))
+                  return b;
+            }
+         }
+         break;
+      default:
+         break;
+      }
+   }
+
+   return NULL;
+}
+
+static vlog_node_t resolve_hier_scope(vlog_node_t v)
+{
+   if (!vlog_has_value(v))
+      return vlog_has_ref(v) ? vlog_ref(v) : NULL;
+
+   vlog_node_t outer = resolve_hier_scope(vlog_value(v));
+   if (outer == NULL || vlog_kind(outer) != V_GEN_BLOCK)
+      return NULL;
+
+   return find_gen_block(outer, vlog_ident(v));
+}
+
+static bool vlog_resolve_hier_tf(vlog_node_t v)
+{
+   // The target must be fixed here for checking and folding but is bound
+   // to the elaborated copy of the generate block later
+
+   if (vlog_has_ref(v))
+      return true;
+
+   vlog_node_t prefix = vlog_value(v), scope = resolve_hier_scope(prefix);
+   if (scope == NULL) {
+      error_at(vlog_loc(prefix), "cannot find %pQ in hierarchical identifier",
+               vlog_ident(prefix));
+      return false;
+   }
+   else if (vlog_kind(scope) != V_GEN_BLOCK) {
+      error_at(vlog_loc(v), "sorry, calling a task or function in another "
+               "module instance is not yet supported");
+      return false;
+   }
+
+   ident_t id = vlog_ident(v);
+
+   const int ndecls = vlog_decls(scope);
+   for (int i = 0; i < ndecls; i++) {
+      vlog_node_t d = vlog_decl(scope, i);
+      if (vlog_ident(d) == id) {
+         vlog_set_ref(v, d);
+         return true;
+      }
+   }
+
+   diag_t *d = diag_new(DIAG_ERROR, vlog_loc(v));
+   diag_printf(d, "name %pQ not found in %pQ", id, vlog_ident(scope));
+   diag_hint(d, vlog_loc(scope), "generate block %pQ declared here",
+             vlog_ident(scope));
+   diag_emit(d);
+   return false;
+}
+
 static void vlog_check_user_tcall(vlog_node_t v)
 {
+   if (vlog_has_value(v) && !vlog_resolve_hier_tf(v))
+      return;
+
    vlog_node_t func = vlog_ref(v);
    if (vlog_kind(func) != V_TASK_DECL) {
       diag_t *d = diag_new(DIAG_ERROR, vlog_loc(v));
@@ -854,7 +935,8 @@ static type_mask_t vlog_check_mod_ref(vlog_node_t v)
 {
    if (vlog_has_ref(v)) {
       vlog_node_t inst = vlog_ref(v);
-      if (vlog_kind(inst) != V_MOD_INST) {
+      const vlog_kind_t kind = vlog_kind(inst);
+      if (kind != V_MOD_INST && kind != V_GEN_BLOCK) {
          error_at(vlog_loc(v), "prefix of hierarchical identifier is not an "
                   "instance");
          return TM_ERROR;
@@ -917,6 +999,9 @@ static type_mask_t vlog_check_part_select(vlog_node_t v)
 
 static type_mask_t vlog_check_user_fcall(vlog_node_t v)
 {
+   if (vlog_has_value(v) && !vlog_resolve_hier_tf(v))
+      return TM_ERROR;
+
    vlog_node_t func = vlog_ref(v);
    if (vlog_kind(func) != V_FUNC_DECL) {
       diag_t *d = diag_new(DIAG_ERROR, vlog_loc(v));

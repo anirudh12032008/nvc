@@ -2014,6 +2014,24 @@ START_TEST(test_href3)
 }
 END_TEST
 
+START_TEST(test_href4)
+{
+   input_from_file(TESTDIR "/vlog/href4.v");
+
+   const error_t expect[] = {
+      {  9, "name 'nothere' not found in 'g'" },
+      {  0, "generate block 'g' declared here" },
+      { 10, "cannot find 'nonesuch' in hierarchical identifier" },
+      { -1, NULL }
+   };
+   expect_errors(expect);
+
+   do_parse_check(V_MODULE);
+
+   check_expected_errors();
+}
+END_TEST
+
 START_TEST(test_constfunc2)
 {
    input_from_file(TESTDIR "/vlog/constfunc2.v");
@@ -2355,6 +2373,7 @@ Suite *get_vlog_tests(void)
    tcase_add_test(tc, test_pp17);
    tcase_add_test(tc, test_number3);
    tcase_add_test(tc, test_pp18);
+   tcase_add_test(tc, test_href4);
    suite_add_tcase(s, tc);
 
    return s;
