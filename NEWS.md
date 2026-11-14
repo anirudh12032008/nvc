@@ -20,6 +20,8 @@
 - Fixed a crash when a Verilog user function call or cast is used as a
   system task argument.
 - Various fixes and improvements to Cobertura coverage export (#1684).
+- Verilog functions with a signed return type now yield a signed value
+  in expressions.
 - Several other minor bugs were resolved (#1678, #1718, #1685, #1726,
   #1730, #1722).
 

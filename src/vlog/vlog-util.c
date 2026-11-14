@@ -367,6 +367,7 @@ bool vlog_is_signed(vlog_node_t v)
       return vlog_is_signed(vlog_type(v));
    case V_REF:
    case V_MEMBER_REF:
+   case V_USER_FCALL:
       return vlog_has_ref(v) && vlog_is_signed(vlog_ref(v));
    case V_BIT_SELECT:
    case V_PART_SELECT:
