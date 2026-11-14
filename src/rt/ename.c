@@ -306,6 +306,18 @@ static void bind_external_name(tree_t name, jit_handle_t scope,
       args[0].pointer = ptr;
 }
 
+static bool has_child_block(tree_t where, ident_t id)
+{
+   const int nstmts = tree_stmts(where);
+   for (int i = 0; i < nstmts; i++) {
+      tree_t s = tree_stmt(where, i);
+      if (tree_kind(s) == T_BLOCK && tree_ident(s) == id)
+         return true;
+   }
+
+   return false;
+}
+
 static void bind_hier_ref(vlog_node_t v, jit_handle_t scope,
                           jit_scalar_t *args)
 {
@@ -313,6 +325,15 @@ static void bind_hier_ref(vlog_node_t v, jit_handle_t scope,
 
    rt_model_t *m = get_model();
    rt_scope_t *s = get_active_scope(m);
+
+   // Port connection expressions are evaluated in the child scope but
+   // names in them refer to instances in an enclosing scope
+   vlog_node_t head = vlog_value(v);
+   while (vlog_has_value(head))
+      head = vlog_value(head);
+
+   while (s->parent != NULL && !has_child_block(s->where, vlog_ident(head)))
+      s = s->parent;
 
    tree_t b = vlog_walk_mod_refs(vlog_value(v), s->where);
    assert(b != NULL);

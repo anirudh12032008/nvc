@@ -20,6 +20,8 @@
 - Fixed a crash when a Verilog user function call or cast is used as a
   system task argument.
 - Various fixes and improvements to Cobertura coverage export (#1684).
+- Fixed a crash when a Verilog hierarchical reference is used in a
+  module instance port connection.
 - Several other minor bugs were resolved (#1678, #1718, #1685, #1726,
   #1730, #1722).
 
