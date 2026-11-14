@@ -2873,6 +2873,68 @@ static void elab_verilog_root(vlog_node_t v, const elab_ctx_t *ctx)
    elab_verilog_module(NULL, label, v, list, stmt, ctx);
 }
 
+static void elab_hier_name_not_found(vlog_node_t v, tree_t b)
+{
+   tree_t h = tree_decl(b, 0);
+   assert(tree_kind(h) == T_HIER);
+
+   diag_t *d = diag_new(DIAG_ERROR, vlog_loc(v));
+   diag_printf(d, "name %pQ not found in %pQ", vlog_ident(v), tree_ident(b));
+   diag_hint(d, tree_loc(b), "%pQ is an instance of %pI", tree_ident(b),
+             tree_ident(tree_ref(h)));
+   diag_emit(d);
+}
+
+static void elab_bind_hier_call(vlog_node_t v, tree_t b)
+{
+   // Bind to the copy of the task or function in the elaborated instance
+   // or generate block
+
+   const bool is_func = vlog_kind(v) == V_USER_FCALL;
+   ident_t id = vlog_ident(v);
+
+   const int ndecls = tree_decls(b);
+   for (int i = 0; i < ndecls; i++) {
+      tree_t wrap = tree_decl(b, i);
+      if (tree_kind(wrap) != T_VERILOG)
+         continue;
+
+      vlog_node_t vd = tree_vlog(wrap);
+      if (vlog_ident(vd) != id)
+         continue;
+
+      switch (vlog_kind(vd)) {
+      case V_FUNC_DECL:
+      case V_TASK_DECL:
+         break;
+      default:
+         continue;
+      }
+
+      if (vlog_kind(vd) != (is_func ? V_FUNC_DECL : V_TASK_DECL)) {
+         diag_t *d = diag_new(DIAG_ERROR, vlog_loc(v));
+         diag_printf(d, "%pQ is not a %s", id, is_func ? "function" : "task");
+         diag_hint(d, vlog_loc(vd), "%pQ declared here", id);
+         diag_emit(d);
+         return;
+      }
+
+      if (!vlog_has_ref(v)) {
+         // Arguments could not be checked during analysis
+         const unsigned nerrors = error_count();
+         vlog_check_call_args(v, vd);
+         vlog_set_ref(v, vd);
+         if (error_count() == nerrors)
+            vlog_simp_call_args(v);
+      }
+      else
+         vlog_set_ref(v, vd);
+      return;
+   }
+
+   elab_hier_name_not_found(v, b);
+}
+
 static vlog_node_t elab_rewrite_hier_ref_cb(vlog_node_t v, void *arg)
 {
    const vlog_kind_t kind = vlog_kind(v);
@@ -2884,6 +2946,11 @@ static vlog_node_t elab_rewrite_hier_ref_cb(vlog_node_t v, void *arg)
    tree_t b = vlog_walk_mod_refs(prefix, arg);
    if (b == NULL)
       return v;
+
+   if (kind != V_HIER_REF) {
+      elab_bind_hier_call(v, b);
+      return v;
+   }
 
    ident_t id = vlog_ident(v);
 
@@ -2904,14 +2971,6 @@ static vlog_node_t elab_rewrite_hier_ref_cb(vlog_node_t v, void *arg)
          return v;
       case V_PORT_MAP:
          continue;
-      case V_FUNC_DECL:
-      case V_TASK_DECL:
-         if (kind != V_HIER_REF) {
-            // Bind to the copy in the elaborated generate block
-            vlog_set_ref(v, vd);
-            return v;
-         }
-         // Fall-through
       default:
          {
             diag_t *d = diag_new(DIAG_ERROR, vlog_loc(v));
@@ -2923,15 +2982,7 @@ static vlog_node_t elab_rewrite_hier_ref_cb(vlog_node_t v, void *arg)
       }
    }
 
-   tree_t h = tree_decl(b, 0);
-   assert(tree_kind(h) == T_HIER);
-
-   diag_t *d = diag_new(DIAG_ERROR, vlog_loc(v));
-   diag_printf(d, "name %pQ not found in %pQ", id, tree_ident(b));
-   diag_hint(d, tree_loc(b), "%pQ is an instance of %pI", tree_ident(b),
-             tree_ident(tree_ref(h)));
-   diag_emit(d);
-
+   elab_hier_name_not_found(v, b);
    return v;
 }
 

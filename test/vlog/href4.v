@@ -7,7 +7,6 @@ module href4;
 
   initial begin
     $display(g.nothere(1));     // Error
-    $display(nonesuch.f(1));    // Error
   end
 
   if (1) begin: other

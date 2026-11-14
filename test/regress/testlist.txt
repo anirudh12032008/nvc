@@ -1513,3 +1513,5 @@ udp3            verilog
 issue1730       verilog
 issue1680       verilog
 issue1680b      verilog
+issue1650       verilog
+issue1650b      verilog

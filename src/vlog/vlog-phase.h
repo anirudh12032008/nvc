@@ -23,6 +23,8 @@
 void vlog_preprocess(text_buf_t *tb, bool precise);
 vlog_node_t vlog_parse(void);
 void vlog_check(vlog_node_t v);
+void vlog_check_call_args(vlog_node_t v, vlog_node_t sub);
+vlog_node_t vlog_simp_call_args(vlog_node_t v);
 void vlog_dump(vlog_node_t v, int indent);
 void vlog_simp(vlog_node_t mod);
 void vlog_trans(vlog_node_t mod, tree_t out);

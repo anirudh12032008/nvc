@@ -2021,8 +2021,7 @@ START_TEST(test_href4)
    const error_t expect[] = {
       {  9, "name 'nothere' not found in 'g'" },
       {  0, "generate block 'g' declared here" },
-      { 10, "cannot find 'nonesuch' in hierarchical identifier" },
-      { 14, "sorry, hierarchical references from inside a generate block" },
+      { 13, "sorry, hierarchical references from inside a generate block" },
       { -1, NULL }
    };
    expect_errors(expect);
@@ -2055,6 +2054,55 @@ START_TEST(test_href6)
 
    const error_t expect[] = {
       {  8, "cannot call non-constant user function 'f' in constant" },
+      { -1, NULL }
+   };
+   expect_errors(expect);
+
+   do_parse_check_fold(V_MODULE);
+
+   check_expected_errors();
+}
+END_TEST
+
+START_TEST(test_href7)
+{
+   input_from_file(TESTDIR "/vlog/href7.v");
+
+   const error_t expect[] = {
+      { 15, "expected 2 arguments for 'f' but have 1" },
+      {  0, "'f' declared here" },
+      { 16, "expected 2 arguments for 'f' but have 3" },
+      {  0, "'f' declared here" },
+      { 17, "expected 1 argument for 't' but have 0" },
+      {  0, "'t' declared here" },
+      { 18, "expected 1 argument for 't' but have 2" },
+      {  0, "'t' declared here" },
+      { 19, "'f' is not a task" },
+      {  0, "'f' declared here" },
+      { 20, "'t' is not a function" },
+      {  0, "'t' declared here" },
+      { 21, "name 'v' not found in 'u'" },
+      {  0, "'u' is an instance of WORK.SUB7" },
+      { 22, "name 'nothere' not found in 'u'" },
+      {  0, "'u' is an instance of WORK.SUB7" },
+      { 23, "cannot find 'nonesuch' in hierarchical identifier" },
+      { -1, NULL }
+   };
+   expect_errors(expect);
+
+   run_elab();
+
+   check_expected_errors();
+}
+END_TEST
+
+START_TEST(test_href8)
+{
+   input_from_file(TESTDIR "/vlog/href8.v");
+
+   const error_t expect[] = {
+      {  4, "cannot call hierarchical function 'f' in constant expression" },
+      {  5, "cannot call hierarchical function 'f' in constant expression" },
       { -1, NULL }
    };
    expect_errors(expect);
@@ -2409,6 +2457,8 @@ Suite *get_vlog_tests(void)
    tcase_add_test(tc, test_href4);
    tcase_add_test(tc, test_href5);
    tcase_add_test(tc, test_href6);
+   tcase_add_test(tc, test_href7);
+   tcase_add_test(tc, test_href8);
    suite_add_tcase(s, tc);
 
    return s;
