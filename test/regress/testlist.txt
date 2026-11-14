@@ -1511,3 +1511,6 @@ issue1726       normal,2008
 vlog52          verilog,gold
 udp3            verilog
 issue1730       verilog
+vlog53          verilog,gold
+vlog54          verilog,gold,min-delays
+vlog55          verilog,gold,max-delays

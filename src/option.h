@@ -82,9 +82,16 @@ typedef enum {
    OPT_RA_VERBOSE,
    OPT_EXCL_VERBOSE,
    OPT_LOWER_MIR,
+   OPT_VLOG_DELAYS,
 
    OPT_LAST_NAME
 } opt_name_t;
+
+typedef enum {
+   DELAYS_TYP,
+   DELAYS_MIN,
+   DELAYS_MAX
+} vlog_delays_t;
 
 typedef enum {
    IEEE_WARNINGS_OFF,

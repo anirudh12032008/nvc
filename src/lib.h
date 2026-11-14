@@ -28,6 +28,7 @@
 typedef struct {
    char *cover_file;
    bool  no_collapse;
+   int   delays;
 } unit_meta_t;
 
 lib_t lib_find(ident_t name);

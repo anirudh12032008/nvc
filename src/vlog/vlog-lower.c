@@ -24,6 +24,7 @@
 #include "ident.h"
 #include "mir/mir-node.h"
 #include "mir/mir-unit.h"
+#include "option.h"
 #include "printf.h"
 #include "rt/assert.h"
 #include "rt/defs.h"
@@ -1805,7 +1806,15 @@ static mir_value_t vlog_lower_with_context(vlog_gen_t *g, vlog_node_t v,
    case V_SYS_FCALL:
       return vlog_lower_sys_fcall(g, v);
    case V_MIN_TYP_MAX:
-      return vlog_lower_with_context(g, vlog_value(v), context);
+      {
+         vlog_node_t e;
+         switch (opt_get_int(OPT_VLOG_DELAYS)) {
+         case DELAYS_MIN: e = vlog_left(v); break;
+         case DELAYS_MAX: e = vlog_right(v); break;
+         default:         e = vlog_value(v); break;
+         }
+         return vlog_lower_with_context(g, e, context);
+      }
    case V_CONCAT:
       {
          int size = 0, repeat = 1;

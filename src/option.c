@@ -163,6 +163,7 @@ void set_default_options(void)
    opt_set_str(OPT_PSL_VERBOSE, getenv("NVC_PSL_VERBOSE"));
    opt_set_int(OPT_PSL_COMMENTS, 0);
    opt_set_int(OPT_NO_COLLAPSE, 0);
+   opt_set_int(OPT_VLOG_DELAYS, DELAYS_TYP);
    opt_set_int(OPT_COVER_VERBOSE, get_int_env("NVC_COVER_VERBOSE", 0));
    opt_set_int(OPT_COVER_TIMESTAMP, get_int_env("NVC_COVER_TIMESTAMP", -1));
    opt_set_str(OPT_COVER_VERSION, getenv("NVC_COVER_VERSION"));

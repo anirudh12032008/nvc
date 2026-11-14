@@ -391,6 +391,12 @@ dotted path to the generic.  For example
 .Fl g\ INIT='1' ,
 and
 .Fl g\ UUT.STR="hello" .
+.\" --min-delays
+.It Fl \-min-delays , Fl \-typ-delays , Fl \-max-delays
+Select which value of a Verilog
+.Dq min:typ:max
+expression is used.  The default is
+.Fl \-typ-delays .
 .\" --no-collapse
 .It Fl \-no-collapse
 Do not collapse ports into a single signal.  Normally if a signal at one

@@ -582,6 +582,9 @@ static int elaborate(int argc, char **argv, cmd_state_t *state)
       { "no-save",         no_argument,       0, 'N' },
       { "jit",             no_argument,       0, 'j' },
       { "no-collapse",     no_argument,       0, 'C' },
+      { "min-delays",      no_argument,       0, 'm' },
+      { "typ-delays",      no_argument,       0, 'y' },
+      { "max-delays",      no_argument,       0, 'x' },
       { "stats",           no_argument,       0, 'S' },
       { "trace",           no_argument,       0, 't' },
       { 0, 0, 0, 0 }
@@ -625,6 +628,15 @@ static int elaborate(int argc, char **argv, cmd_state_t *state)
          opt_set_int(OPT_NO_COLLAPSE, 1);
          meta.no_collapse = true;
          break;
+      case 'm':
+         meta.delays = DELAYS_MIN;
+         break;
+      case 'y':
+         meta.delays = DELAYS_TYP;
+         break;
+      case 'x':
+         meta.delays = DELAYS_MAX;
+         break;
       case 'j':
          // No effect
          break;
@@ -657,6 +669,8 @@ static int elaborate(int argc, char **argv, cmd_state_t *state)
          should_not_reach_here();
       }
    }
+
+   opt_set_int(OPT_VLOG_DELAYS, meta.delays);
 
    const int ntops = next_cmd - optind;
    if (ntops == 0)
@@ -1099,6 +1113,7 @@ static int run_cmd(int argc, char **argv, cmd_state_t *state)
    assert(top != NULL);
 
    opt_set_int(OPT_NO_COLLAPSE, meta->no_collapse);
+   opt_set_int(OPT_VLOG_DELAYS, meta->delays);
 
    wave_dumper_t *dumper = NULL;
    if (wave_fname != NULL) {

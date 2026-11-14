@@ -131,6 +131,7 @@ typedef struct _test {
    char      *name;
    test_t    *next;
    int        flags;
+   const char *delays;
    char      *stop;
    param_t   *params;
    char      *relax;
@@ -458,6 +459,10 @@ static bool parse_test_list(void)
             test->flags |= F_PERFILE;
          else if (strcmp(opt, "no-collapse") == 0)
             test->flags |= F_NOCOLL;
+         else if (strcmp(opt, "min-delays") == 0)
+            test->delays = "--min-delays";
+         else if (strcmp(opt, "max-delays") == 0)
+            test->delays = "--max-delays";
          else if (strcmp(opt, "dump-arrays") == 0)
             test->flags |= F_ARRAYS;
          else if (strncmp(opt, "dump-arrays=", 12) == 0) {
@@ -1015,6 +1020,9 @@ static bool run_test(test_t *test)
 
       if (test->flags & F_NOCOLL)
          push_arg(&args, "--no-collapse");
+
+      if (test->delays != NULL)
+         push_arg(&args, "%s", test->delays);
 
       if (test->flags & F_COVER) {
          if (test->cover)

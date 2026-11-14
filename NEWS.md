@@ -1,6 +1,9 @@
 ## Unreleased changes
 - Logical operators on arrays and IEEE vectors now emit a warning if
   their operands differ in length (from @NikLeberg) (#1667).
+- Verilog `min:typ:max` expressions can now be selected with the new
+  `--min-delays`, `--typ-delays` (default), and `--max-delays`
+  elaboration options (#1677).
 - Added basic support for Verilog `$setup`, `$hold`, `$recovery`, and
   `$removal` timing checks (from @Blebowski).
 - Added a `pkg-config` configuration file to aid locating the VHPI
