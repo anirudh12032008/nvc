@@ -637,7 +637,7 @@ static void vlog_check_while(vlog_node_t v)
    vlog_check_stmts(v);
 }
 
-static void vlog_check_call_args(vlog_node_t v, vlog_node_t sub)
+void vlog_check_call_args(vlog_node_t v, vlog_node_t sub)
 {
    const int nparams = vlog_params(v);
    const int nports = vlog_ports(sub);
@@ -695,7 +695,7 @@ static void vlog_check_call_args(vlog_node_t v, vlog_node_t sub)
    }
 }
 
-static vlog_node_t find_gen_block(vlog_node_t scope, ident_t name)
+static vlog_node_t find_child_scope(vlog_node_t scope, ident_t name)
 {
    const int nstmts = vlog_stmts(scope);
    for (int i = 0; i < nstmts; i++) {
@@ -705,11 +705,20 @@ static vlog_node_t find_gen_block(vlog_node_t scope, ident_t name)
          if (vlog_ident(s) == name)
             return s;
          break;
+      case V_INST_LIST:
+         {
+            const int ninst = vlog_stmts(s);
+            for (int j = 0; j < ninst; j++) {
+               if (vlog_ident((b = vlog_stmt(s, j))) == name)
+                  return b;
+            }
+         }
+         break;
       case V_IF_GENERATE:
          {
             const int nconds = vlog_conds(s);
             for (int j = 0; j < nconds; j++) {
-               if ((b = find_gen_block(vlog_cond(s, j), name)))
+               if ((b = find_child_scope(vlog_cond(s, j), name)))
                   return b;
             }
          }
@@ -788,16 +797,27 @@ static vlog_node_t find_in_branches(vlog_node_t b, find_fn_t fn, ident_t name)
    return NULL;
 }
 
-static vlog_node_t resolve_hier_scope(vlog_node_t v)
+static vlog_node_t resolve_hier_scope(vlog_node_t v, bool *later)
 {
-   if (!vlog_has_value(v))
-      return vlog_has_ref(v) ? vlog_ref(v) : NULL;
+   // Sets later if the name must be resolved at elaboration
 
-   vlog_node_t outer = resolve_hier_scope(vlog_value(v));
-   if (outer == NULL || vlog_kind(outer) != V_GEN_BLOCK)
+   if (!vlog_has_value(v)) {
+      if (vlog_has_ref(v))
+         return vlog_ref(v);
+
+      *later = true;   // Absolute path or instance declared later
       return NULL;
+   }
 
-   return find_in_branches(outer, find_gen_block, vlog_ident(v));
+   vlog_node_t outer = resolve_hier_scope(vlog_value(v), later);
+   if (outer == NULL)
+      return NULL;
+   else if (vlog_kind(outer) != V_GEN_BLOCK) {
+      *later = true;   // Inside another instance
+      return NULL;
+   }
+
+   return find_in_branches(outer, find_child_scope, vlog_ident(v));
 }
 
 static bool check_hier_origin(vlog_node_t v)
@@ -812,25 +832,27 @@ static bool check_hier_origin(vlog_node_t v)
 
 static bool vlog_resolve_hier_tf(vlog_node_t v)
 {
-   // The target must be fixed here for checking and folding but is bound
-   // to the elaborated copy of the generate block later
+   // The target in a generate block must be fixed here for checking and
+   // folding but is bound to the elaborated copy later.  A target in
+   // another instance is not known until elaboration.
 
    if (vlog_has_ref(v))
       return true;
    else if (!check_hier_origin(v))
       return false;
 
-   vlog_node_t prefix = vlog_value(v), scope = resolve_hier_scope(prefix);
-   if (scope == NULL) {
+   bool later = false;
+   vlog_node_t prefix = vlog_value(v);
+   vlog_node_t scope = resolve_hier_scope(prefix, &later);
+   if (later)
+      return true;   // Target in another instance is bound at elaboration
+   else if (scope == NULL) {
       error_at(vlog_loc(prefix), "cannot find %pQ in hierarchical identifier",
                vlog_ident(prefix));
       return false;
    }
-   else if (vlog_kind(scope) != V_GEN_BLOCK) {
-      error_at(vlog_loc(v), "sorry, calling a task or function in another "
-               "module instance is not yet supported");
-      return false;
-   }
+   else if (vlog_kind(scope) != V_GEN_BLOCK)
+      return true;
 
    ident_t id = vlog_ident(v);
 
@@ -850,8 +872,14 @@ static bool vlog_resolve_hier_tf(vlog_node_t v)
 
 static void vlog_check_user_tcall(vlog_node_t v)
 {
-   if (vlog_has_value(v) && !vlog_resolve_hier_tf(v))
-      return;
+   if (vlog_has_value(v)) {
+      if (!vlog_resolve_hier_tf(v))
+         return;
+      else if (!vlog_has_ref(v)) {
+         vlog_check_params(v);
+         return;   // Checked against the target at elaboration
+      }
+   }
 
    vlog_node_t func = vlog_ref(v);
    if (vlog_kind(func) != V_TASK_DECL) {
@@ -1082,8 +1110,14 @@ static type_mask_t vlog_check_part_select(vlog_node_t v)
 
 static type_mask_t vlog_check_user_fcall(vlog_node_t v)
 {
-   if (vlog_has_value(v) && !vlog_resolve_hier_tf(v))
-      return TM_ERROR;
+   if (vlog_has_value(v)) {
+      if (!vlog_resolve_hier_tf(v))
+         return TM_ERROR;
+      else if (!vlog_has_ref(v)) {
+         vlog_check_params(v);
+         return TM_INTEGRAL | TM_REAL;   // Return type not known yet
+      }
+   }
 
    vlog_node_t func = vlog_ref(v);
    if (vlog_kind(func) != V_FUNC_DECL) {

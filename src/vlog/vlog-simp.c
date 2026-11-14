@@ -205,7 +205,7 @@ static void build_sensitivity(vlog_node_t ctrl, vlog_node_t v, hset_t *set,
       break;
    case V_USER_FCALL:
    case V_USER_TCALL:
-      if (is_comb)
+      if (is_comb && vlog_has_ref(v))
          build_sensitivity(ctrl, vlog_ref(v), set, is_comb);
       // Fall-through
    case V_CONCAT:
@@ -366,7 +366,7 @@ static vlog_node_t simp_concat(vlog_node_t v)
    return v;
 }
 
-static vlog_node_t simp_call_args(vlog_node_t v)
+vlog_node_t vlog_simp_call_args(vlog_node_t v)
 {
    vlog_node_t sub = vlog_ref(v);
 
@@ -444,7 +444,9 @@ static vlog_node_t vlog_simp_cb(vlog_node_t v, void *context)
       return simp_wait(v);
    case V_USER_FCALL:
    case V_USER_TCALL:
-      return simp_call_args(v);
+      if (!vlog_has_ref(v))
+         return v;   // Hierarchical call bound at elaboration
+      return vlog_simp_call_args(v);
    default:
       return v;
    }

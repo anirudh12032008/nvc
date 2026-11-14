@@ -106,6 +106,11 @@ static fold_state_t get_fold_state(vlog_node_t v, fold_ctx_t *ctx)
       }
    case V_USER_FCALL:
       {
+         if (!vlog_has_ref(v)) {
+            ctx->nonconst = v;   // Hierarchical call not yet bound
+            return FOLD_NON_CONST;
+         }
+
          vlog_node_t d = vlog_ref(v);
          const vlog_flags_t flags = vlog_flags(d);
          if (vlog_has_value(v) || !(flags & VLOG_F_CONST)) {
@@ -231,6 +236,9 @@ static void fold_report_non_const(vlog_node_t v, fold_ctx_t *ctx)
       case V_SYS_FCALL:
          diag_printf(d, "call system function");
          break;
+      case V_USER_FCALL:
+         diag_printf(d, "call hierarchical function");
+         break;
       case V_VAR_DECL:
          diag_printf(d, "reference variable");
          break;
@@ -244,7 +252,8 @@ static void fold_report_non_const(vlog_node_t v, fold_ctx_t *ctx)
       diag_printf(d, " %pQ in constant expression",
                   vlog_ident(ctx->nonconst));
 
-      if (vlog_kind(ctx->nonconst) != V_SYS_FCALL)
+      if (vlog_kind(ctx->nonconst) != V_SYS_FCALL
+          && vlog_kind(ctx->nonconst) != V_USER_FCALL)
          diag_hint(d, vlog_loc(ctx->nonconst), "%pQ declared here",
                    vlog_ident(ctx->nonconst));
 

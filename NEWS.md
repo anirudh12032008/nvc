@@ -21,6 +21,8 @@
   system task argument.
 - Verilog hierarchical names can now refer to variables, tasks, and
   functions inside named generate blocks (#1680).
+- Verilog tasks and functions can now be called through a hierarchical
+  reference to another module instance (#1650).
 - Various fixes and improvements to Cobertura coverage export (#1684).
 - Several other minor bugs were resolved (#1678, #1718, #1685, #1726,
   #1730, #1722).
