@@ -109,6 +109,8 @@
 #define F_SEED    (1 << 27)
 #define F_PERFILE (1 << 28)
 #define F_EXIT    (1 << 29)
+#define F_MINDLY  (1 << 30)
+#define F_MAXDLY  (1U << 31)
 
 typedef struct _test test_t;
 typedef struct _param param_t;
@@ -130,8 +132,7 @@ typedef struct _param {
 typedef struct _test {
    char      *name;
    test_t    *next;
-   int        flags;
-   const char *delays;
+   unsigned   flags;
    char      *stop;
    param_t   *params;
    char      *relax;
@@ -460,9 +461,9 @@ static bool parse_test_list(void)
          else if (strcmp(opt, "no-collapse") == 0)
             test->flags |= F_NOCOLL;
          else if (strcmp(opt, "min-delays") == 0)
-            test->delays = "--min-delays";
+            test->flags |= F_MINDLY;
          else if (strcmp(opt, "max-delays") == 0)
-            test->delays = "--max-delays";
+            test->flags |= F_MAXDLY;
          else if (strcmp(opt, "dump-arrays") == 0)
             test->flags |= F_ARRAYS;
          else if (strncmp(opt, "dump-arrays=", 12) == 0) {
@@ -1021,8 +1022,11 @@ static bool run_test(test_t *test)
       if (test->flags & F_NOCOLL)
          push_arg(&args, "--no-collapse");
 
-      if (test->delays != NULL)
-         push_arg(&args, "%s", test->delays);
+      if (test->flags & F_MINDLY)
+         push_arg(&args, "--min-delays");
+
+      if (test->flags & F_MAXDLY)
+         push_arg(&args, "--max-delays");
 
       if (test->flags & F_COVER) {
          if (test->cover)

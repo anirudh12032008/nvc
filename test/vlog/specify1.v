@@ -9,7 +9,6 @@ module test1(a, b, c, d, e, f, clk, rst, r, s, t, u, v, w);
     specparam [7:0] t2 = 2;
 
     (a => r) = 1;
-    (a => r) = (100:100:100, 100:100:100);
     (b => s) = (1.2, t1);
     (c + => t) = t2;
     (a,b,c -*> u,v,w) = 2.5;

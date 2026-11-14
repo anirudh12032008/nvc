@@ -2364,6 +2364,9 @@ static void usage(void)
            { "-g NAME=VALUE", "Set top level generic NAME to VALUE" },
            { "-j, --jit", "Enable just-in-time compilation during simulation" },
            { "-O0, -O1, -O2, -O3", "Set optimisation level (default is -O2)" },
+           { "--min-delays, --typ-delays, --max-delays",
+             "Select the value of Verilog min:typ:max expressions (default "
+             "is typ)" },
            { "--no-collapse", "Do not collapse multiple signals into one" },
            { "--no-save", "Do not save the elaborated design to disk" },
            { "--stats", "Print statistics about instantiated design units" },

@@ -856,7 +856,6 @@ static void lib_read_meta(fbuf_t *f, unit_meta_t *meta)
    }
 
    meta->no_collapse = fbuf_get_uint(f);
-   meta->delays = fbuf_get_uint(f);
 }
 
 static lib_unit_t *lib_read_unit(lib_t lib, ident_t id)
@@ -886,6 +885,9 @@ static lib_unit_t *lib_read_unit(lib_t lib, ident_t id)
          break;
       case 'M':
          lib_read_meta(f, &meta);
+         break;
+      case 'D':
+         meta.delays = fbuf_get_uint(f);
          break;
       case 'V':
          // Ignore it (remove after 1.12 release)
@@ -1077,8 +1079,7 @@ static void lib_save_unit(lib_t lib, lib_unit_t *unit)
 
    object_write(unit->object, f, ident_ctx, loc_ctx);
 
-   if (unit->meta.cover_file != NULL || unit->meta.no_collapse
-       || unit->meta.delays != 0) {
+   if (unit->meta.cover_file != NULL || unit->meta.no_collapse) {
       write_u8('M', f);
 
       if (unit->meta.cover_file != NULL) {
@@ -1090,6 +1091,10 @@ static void lib_save_unit(lib_t lib, lib_unit_t *unit)
          fbuf_put_uint(f, 0);
 
       fbuf_put_uint(f, unit->meta.no_collapse);
+   }
+
+   if (unit->meta.delays != DELAYS_TYP) {
+      write_u8('D', f);
       fbuf_put_uint(f, unit->meta.delays);
    }
 

@@ -395,8 +395,10 @@ and
 .It Fl \-min-delays , Fl \-typ-delays , Fl \-max-delays
 Select which value of a Verilog
 .Dq min:typ:max
-expression is used.  The default is
+expression is used when the design is lowered during elaboration.  The
+default is
 .Fl \-typ-delays .
+These options do not affect SDF back-annotation.
 .\" --no-collapse
 .It Fl \-no-collapse
 Do not collapse ports into a single signal.  Normally if a signal at one
