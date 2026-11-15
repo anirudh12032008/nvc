@@ -1,4 +1,4 @@
-module vlog_sfunc1;
+module vlog56;
   function signed [31:0] neg32(input integer x);
     neg32 = -x;
   endfunction
@@ -15,7 +15,18 @@ module vlog_sfunc1;
     uneg8 = -x;
   endfunction
 
+  function f1;
+    input a;
+    f1 = 1'b1;
+  endfunction
+
+  function signed fs;
+    input a;
+    fs = 1'b1;
+  endfunction
+
   reg failed = 0;
+  reg signed [63:0] sw;
   reg [63:0] wide;
   reg signed [63:0] swide;
   integer i;
@@ -45,6 +56,22 @@ module vlog_sfunc1;
     // Mixed signed and unsigned operands make the result unsigned
     if ((neg32(2) < 32'd1) !== 1'b0) failed = 1;
     if ((neg32(2) < 32'sd1) !== 1'b1) failed = 1;
+
+    // Implicit 1-bit return is unsigned
+    if (f1(0) < 0) failed = 1;
+    wide = f1(0);
+    if (wide !== 64'd1) failed = 1;
+
+    // Signed 1-bit return sign-extends
+    sw = fs(0);
+    if (sw !== -64'sd1) failed = 1;
+
+    // Signed calls inside larger expressions
+    sw = neg8(2) + neg8(1);
+    if (sw !== -64'sd3) failed = 1;
+    sw = neg32(neg32(2));
+    if (sw !== 64'sd2) failed = 1;
+    $display("%0d %0d %0d %0d", f1(0), fs(0), neg8(2) + neg8(1), neg32(neg32(2)));
 
     if (failed)
       $display("FAILED");
