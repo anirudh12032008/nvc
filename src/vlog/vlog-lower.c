@@ -86,6 +86,7 @@ typedef struct {
    ihash_t       *temps;
    mir_block_t    exit;
    bool           constfunc;
+   bool           portmap;
 } vlog_gen_t;
 
 static void vlog_lower_locals(vlog_gen_t *g, vlog_node_t v);
@@ -431,9 +432,12 @@ static vlog_select_t vlog_lower_select(vlog_gen_t *g, vlog_node_t v)
          mir_value_t locus = mir_build_debug_locus(g->mu, vlog_to_object(v));
          ident_t scope = mir_get_parent(g->mu);
 
+         // Port connections belong to the instantiating scope
+         mir_value_t up = mir_const(g->mu, mir_offset_type(g->mu), g->portmap);
+
          mir_value_t ptr = mir_build_bind_external(g->mu, locus, scope,
                                                    ti->signal, ti->stamp,
-                                                   NULL, 0);
+                                                   &up, 1);
 
          mir_type_t t_offset = mir_offset_type(g->mu);
          mir_value_t zero = mir_const(g->mu, t_offset, 0);
@@ -1737,9 +1741,12 @@ static mir_value_t vlog_lower_with_context(vlog_gen_t *g, vlog_node_t v,
          mir_value_t locus = mir_build_debug_locus(g->mu, vlog_to_object(v));
          ident_t scope = mir_get_parent(g->mu);
 
+         // Port connections belong to the instantiating scope
+         mir_value_t up = mir_const(g->mu, mir_offset_type(g->mu), g->portmap);
+
          mir_value_t ptr = mir_build_bind_external(g->mu, locus, scope,
                                                    ti->signal, ti->stamp,
-                                                   NULL, 0);
+                                                   &up, 1);
 
          mir_value_t nets = mir_build_load(g->mu, ptr);
          mir_value_t data = mir_build_resolved(g->mu, nets);
@@ -3641,6 +3648,8 @@ static void vlog_lower_gate_inst(vlog_gen_t *g, vlog_node_t v)
 
 static void vlog_lower_port_map(vlog_gen_t *g, vlog_node_t v)
 {
+   g->portmap = true;
+
    vlog_node_t port = vlog_ref(v);
    assert(vlog_kind(port) == V_PORT_DECL);
 
